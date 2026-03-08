@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState } from 'react';
+import ReactDOM from 'react-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import {
   flexRender,
@@ -275,8 +276,10 @@ export default function MobileFundTable({
 
   const [settingModalOpen, setSettingModalOpen] = useState(false);
   const tableContainerRef = useRef(null);
+  const portalHeaderRef = useRef(null);
   const [tableContainerWidth, setTableContainerWidth] = useState(0);
   const [isScrolled, setIsScrolled] = useState(false);
+  const [showPortalHeader, setShowPortalHeader] = useState(false);
 
   useEffect(() => {
     const el = tableContainerRef.current;
@@ -289,15 +292,62 @@ export default function MobileFundTable({
   }, []);
 
   useEffect(() => {
-    const el = tableContainerRef.current;
-    if (!el) return;
-    const handleScroll = () => {
-      setIsScrolled(el.scrollLeft > 0);
+    if (typeof window === 'undefined') return;
+
+    const handleVerticalScroll = () => {
+      console.log('scrollY', window.scrollY);
+      setShowPortalHeader(window.scrollY >= 100);
     };
-    handleScroll();
-    el.addEventListener('scroll', handleScroll, { passive: true });
-    return () => el.removeEventListener('scroll', handleScroll);
+
+    handleVerticalScroll();
+    window.addEventListener('scroll', handleVerticalScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleVerticalScroll);
   }, []);
+
+  useEffect(() => {
+    const tableEl = tableContainerRef.current;
+    if (!tableEl) return;
+
+    const handleScroll = () => {
+      setIsScrolled(tableEl.scrollLeft > 0);
+    };
+
+    handleScroll();
+    tableEl.addEventListener('scroll', handleScroll, { passive: true });
+
+    return () => {
+      tableEl.removeEventListener('scroll', handleScroll);
+    };
+  }, []);
+
+  useEffect(() => {
+    const tableEl = tableContainerRef.current;
+    const portalEl = portalHeaderRef.current;
+    console.log('portalEl', portalEl)
+    if (!tableEl || !portalEl) return;
+
+    const syncScrollToPortal = () => {
+      console.log('tableEl.scrollLeft', tableEl.scrollLeft)
+      portalEl.scrollLeft = tableEl.scrollLeft;
+    };
+
+    const syncScrollToTable = () => {
+      tableEl.scrollLeft = portalEl.scrollLeft;
+    };
+
+    syncScrollToPortal();
+
+    const handleTableScroll = () => syncScrollToPortal();
+    const handlePortalScroll = () => syncScrollToTable();
+
+    tableEl.addEventListener('scroll', handleTableScroll, { passive: true });
+    // portalEl.addEventListener('scroll', handlePortalScroll, { passive: true });
+
+    return () => {
+      tableEl.removeEventListener('scroll', handleTableScroll);
+      // portalEl.removeEventListener('scroll', handlePortalScroll);
+    };
+  }, [showPortalHeader]);
 
   const NAME_CELL_WIDTH = 140;
   const GAP = 12;
@@ -742,116 +792,149 @@ export default function MobileFundTable({
     return 'text-right';
   };
 
-  return (
-    <div className="mobile-fund-table" ref={tableContainerRef}>
+  const renderTableHeader = ()=>{
+    if(!headerGroup) return null;
+    return (
       <div
-        className="mobile-fund-table-scroll"
-        style={mobileGridLayout.minWidth != null ? { minWidth: mobileGridLayout.minWidth } : undefined}
+        className="table-header-row mobile-fund-table-header"
+        style={mobileGridLayout.gridTemplateColumns ? { gridTemplateColumns: mobileGridLayout.gridTemplateColumns } : undefined}
       >
-        {headerGroup && (
+        {headerGroup.headers.map((header, headerIndex) => {
+          const columnId = header.column.id;
+          const pinClass = getPinClass(columnId, true);
+          const alignClass = getAlignClass(columnId);
+          const isLastColumn = headerIndex === headerGroup.headers.length - 1;
+          return (
+            <div
+              key={header.id}
+              className={`table-header-cell ${alignClass} ${pinClass}`}
+              style={isLastColumn ? { paddingRight: LAST_COLUMN_EXTRA } : undefined}
+            >
+              {header.isPlaceholder
+                ? null
+                : flexRender(header.column.columnDef.header, header.getContext())}
+            </div>
+          );
+        })}
+      </div>
+    )
+  }
+
+  const renderContent = (onlyShowHeader) => {
+    if (onlyShowHeader) {
+      return (
+        <div style={{position: 'fixed', top: 175}} className="mobile-fund-table mobile-fund-table-portal-header" ref={portalHeaderRef}>
           <div
-            className="table-header-row mobile-fund-table-header"
-            style={mobileGridLayout.gridTemplateColumns ? { gridTemplateColumns: mobileGridLayout.gridTemplateColumns } : undefined}
+            className="mobile-fund-table-scroll"
+            style={mobileGridLayout.minWidth != null ? { minWidth: mobileGridLayout.minWidth } : undefined}
           >
-            {headerGroup.headers.map((header, headerIndex) => {
-              const columnId = header.column.id;
-              const pinClass = getPinClass(columnId, true);
-              const alignClass = getAlignClass(columnId);
-              const isLastColumn = headerIndex === headerGroup.headers.length - 1;
-              return (
-                <div
-                  key={header.id}
-                  className={`table-header-cell ${alignClass} ${pinClass}`}
-                  style={isLastColumn ? { paddingRight: LAST_COLUMN_EXTRA } : undefined}
-                >
-                  {header.isPlaceholder
-                    ? null
-                    : flexRender(header.column.columnDef.header, header.getContext())}
-                </div>
-              );
-            })}
+            {renderTableHeader()}
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="mobile-fund-table" ref={tableContainerRef}>
+        <div
+          className="mobile-fund-table-scroll"
+          style={mobileGridLayout.minWidth != null ? { minWidth: mobileGridLayout.minWidth } : undefined}
+        >
+          {renderTableHeader()}
+
+          {!onlyShowHeader && (
+            <DndContext
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragStart={handleDragStart}
+              onDragEnd={handleDragEnd}
+              onDragCancel={handleDragCancel}
+              modifiers={[restrictToVerticalAxis, restrictToParentElement]}
+            >
+              <SortableContext
+                items={data.map((item) => item.code)}
+                strategy={verticalListSortingStrategy}
+              >
+                <AnimatePresence mode="popLayout">
+                  {table.getRowModel().rows.map((row) => (
+                    <SortableRow
+                      key={row.original.code || row.id}
+                      row={row}
+                      isTableDragging={!!activeId}
+                      disabled={sortBy !== 'default'}
+                    >
+                      {(setActivatorNodeRef, listeners) => (
+                        <div
+                          ref={sortBy === 'default' ? setActivatorNodeRef : undefined}
+                          className="table-row"
+                          style={{
+                            background: 'var(--bg)',
+                            position: 'relative',
+                            zIndex: 1,
+                            ...(mobileGridLayout.gridTemplateColumns ? { gridTemplateColumns: mobileGridLayout.gridTemplateColumns } : {}),
+                          }}
+                          {...(sortBy === 'default' ? listeners : {})}
+                        >
+                          {row.getVisibleCells().map((cell, cellIndex) => {
+                            const columnId = cell.column.id;
+                            const pinClass = getPinClass(columnId, false);
+                            const alignClass = getAlignClass(columnId);
+                            const cellClassName = cell.column.columnDef.meta?.cellClassName || '';
+                            const isLastColumn = cellIndex === row.getVisibleCells().length - 1;
+                            return (
+                              <div
+                                key={cell.id}
+                                className={`table-cell ${alignClass} ${cellClassName} ${pinClass}`}
+                                style={isLastColumn ? { paddingRight: LAST_COLUMN_EXTRA } : undefined}
+                              >
+                                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      )}
+                    </SortableRow>
+                  ))}
+                </AnimatePresence>
+              </SortableContext>
+            </DndContext>
+
+          )}
+        </div>
+
+        {table.getRowModel().rows.length === 0 && !onlyShowHeader && (
+          <div className="table-row empty-row">
+            <div className="table-cell" style={{ textAlign: 'center' }}>
+              <span className="muted">暂无数据</span>
+            </div>
           </div>
         )}
 
-        <DndContext
-          sensors={sensors}
-          collisionDetection={closestCenter}
-          onDragStart={handleDragStart}
-          onDragEnd={handleDragEnd}
-          onDragCancel={handleDragCancel}
-          modifiers={[restrictToVerticalAxis, restrictToParentElement]}
-        >
-          <SortableContext
-            items={data.map((item) => item.code)}
-            strategy={verticalListSortingStrategy}
-          >
-            <AnimatePresence mode="popLayout">
-              {table.getRowModel().rows.map((row) => (
-                <SortableRow
-                  key={row.original.code || row.id}
-                  row={row}
-                  isTableDragging={!!activeId}
-                  disabled={sortBy !== 'default'}
-                >
-                  {(setActivatorNodeRef, listeners) => (
-                    <div
-                      ref={sortBy === 'default' ? setActivatorNodeRef : undefined}
-                      className="table-row"
-                      style={{
-                        background: 'var(--bg)',
-                        position: 'relative',
-                        zIndex: 1,
-                        ...(mobileGridLayout.gridTemplateColumns ? { gridTemplateColumns: mobileGridLayout.gridTemplateColumns } : {}),
-                      }}
-                      {...(sortBy === 'default' ? listeners : {})}
-                    >
-                      {row.getVisibleCells().map((cell, cellIndex) => {
-                        const columnId = cell.column.id;
-                        const pinClass = getPinClass(columnId, false);
-                        const alignClass = getAlignClass(columnId);
-                        const cellClassName = cell.column.columnDef.meta?.cellClassName || '';
-                        const isLastColumn = cellIndex === row.getVisibleCells().length - 1;
-                        return (
-                          <div
-                            key={cell.id}
-                            className={`table-cell ${alignClass} ${cellClassName} ${pinClass}`}
-                            style={isLastColumn ? { paddingRight: LAST_COLUMN_EXTRA } : undefined}
-                          >
-                            {flexRender(cell.column.columnDef.cell, cell.getContext())}
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
-                </SortableRow>
-              ))}
-            </AnimatePresence>
-          </SortableContext>
-        </DndContext>
+        {!onlyShowHeader && (
+          <MobileSettingModal
+            open={settingModalOpen}
+            onClose={() => setSettingModalOpen(false)}
+            columns={mobileColumnOrder.map((id) => ({ id, header: MOBILE_COLUMN_HEADERS[id] ?? id }))}
+            columnVisibility={mobileColumnVisibility}
+            onColumnReorder={(newOrder) => {
+              setMobileColumnOrder(newOrder);
+            }}
+            onToggleColumnVisibility={handleToggleMobileColumnVisibility}
+            onResetColumnOrder={handleResetMobileColumnOrder}
+            onResetColumnVisibility={handleResetMobileColumnVisibility}
+            showFullFundName={showFullFundName}
+            onToggleShowFullFundName={handleToggleShowFullFundName}
+          />
+        )}
+
+        {!onlyShowHeader && showPortalHeader && ReactDOM.createPortal(renderContent(true), document.body)}
       </div>
+    );
+  };
 
-      {table.getRowModel().rows.length === 0 && (
-        <div className="table-row empty-row">
-          <div className="table-cell" style={{ textAlign: 'center' }}>
-            <span className="muted">暂无数据</span>
-          </div>
-        </div>
-      )}
-
-      <MobileSettingModal
-        open={settingModalOpen}
-        onClose={() => setSettingModalOpen(false)}
-        columns={mobileColumnOrder.map((id) => ({ id, header: MOBILE_COLUMN_HEADERS[id] ?? id }))}
-        columnVisibility={mobileColumnVisibility}
-        onColumnReorder={(newOrder) => {
-          setMobileColumnOrder(newOrder);
-        }}
-        onToggleColumnVisibility={handleToggleMobileColumnVisibility}
-        onResetColumnOrder={handleResetMobileColumnOrder}
-        onResetColumnVisibility={handleResetMobileColumnVisibility}
-        showFullFundName={showFullFundName}
-        onToggleShowFullFundName={handleToggleShowFullFundName}
-      />
-    </div>
+  return (
+    <>
+      {renderContent()}
+    </>
   );
 }

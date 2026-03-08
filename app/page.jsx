@@ -427,6 +427,7 @@ export default function HomePage() {
   // 动态计算 Navbar 和 FilterBar 高度
   const navbarRef = useRef(null);
   const filterBarRef = useRef(null);
+  const containerRef = useRef(null);
   const [navbarHeight, setNavbarHeight] = useState(0);
   const [filterBarHeight, setFilterBarHeight] = useState(0);
   // 主题初始固定为 dark，避免 SSR 与客户端首屏不一致导致 hydration 报错；真实偏好由 useLayoutEffect 在首帧前恢复
@@ -3598,7 +3599,7 @@ export default function HomePage() {
   };
 
   return (
-    <div className="container content" style={{ width: containerWidth }}>
+    <div ref={containerRef} className="container content" style={{ width: containerWidth }}>
       <AnimatePresence>
         {showThemeTransition && (
           <motion.div
