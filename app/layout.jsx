@@ -1,3 +1,4 @@
+import { Toaster } from '@/components/ui/sonner';
 import './globals.css';
 import AnalyticsGate from './components/AnalyticsGate';
 import packageJson from '../package.json';
@@ -27,8 +28,9 @@ export default function RootLayout({ children }) {
       />
     </head>
     <body>
-    <AnalyticsGate GA_ID={GA_ID} />
-    {children}
+      <AnalyticsGate GA_ID={GA_ID} />
+      {children}
+      <Toaster />
     </body>
     </html>
   );

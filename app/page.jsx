@@ -61,6 +61,7 @@ import WeChatModal from "./components/WeChatModal";
 import DcaModal from "./components/DcaModal";
 import githubImg from "./assets/github.svg";
 import { supabase, isSupabaseConfigured } from './lib/supabase';
+import { toast as sonnerToast } from 'sonner';
 import { recordValuation, getAllValuationSeries, clearFund } from './lib/valuationTimeseries';
 import { loadHolidaysForYears, isTradingDay as isDateTradingDay } from './lib/tradingCalendar';
 import { parseFundTextWithLLM, fetchFundData, fetchLatestRelease, fetchShanghaiIndexDate, fetchSmartFundNetValue, searchFunds } from './api/fund';
@@ -4216,6 +4217,10 @@ export default function HomePage() {
             <button
               className="link-button"
               onClick={() => {
+                if (!user?.id) {
+                  sonnerToast.error('请先登录后再提交反馈');
+                  return;
+                }
                 setFeedbackNonce((n) => n + 1);
                 setFeedbackOpen(true);
               }}
