@@ -680,15 +680,19 @@ export default function MobileFundTable({
           const original = info.row.original || {};
           const date = original.estimateNavDate ?? '-';
           const displayDate = typeof date === 'string' && date.length > 5 ? date.slice(5) : date;
+          const estimateNav = info.getValue();
+          const hasEstimateNav = estimateNav != null && estimateNav !== '—';
 
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
               <span style={{ display: 'block', width: '100%', fontWeight: 700 }}>
                 <FitText maxFontSize={14} minFontSize={10}>
-                  {info.getValue() ?? '—'}
+                  {estimateNav ?? '—'}
                 </FitText>
               </span>
-              <span className="muted" style={{ fontSize: '10px' }}>{displayDate}</span>
+              {hasEstimateNav && displayDate && displayDate !== '-' ? (
+                <span className="muted" style={{ fontSize: '10px' }}>{displayDate}</span>
+              ) : null}
             </div>
           );
         },
@@ -723,12 +727,16 @@ export default function MobileFundTable({
           const time = original.estimateTime ?? '-';
           const displayTime = typeof time === 'string' && time.length > 5 ? time.slice(5) : time;
           const cls = isMuted ? 'muted' : value > 0 ? 'up' : value < 0 ? 'down' : '';
+          const text = info.getValue();
+          const hasText = text != null && text !== '—';
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
               <span className={cls} style={{ fontWeight: 700 }}>
-                {info.getValue() ?? '—'}
+                {text ?? '—'}
               </span>
-              <span className="muted" style={{ fontSize: '10px' }}>{displayTime}</span>
+              {hasText && displayTime && displayTime !== '-' ? (
+                <span className="muted" style={{ fontSize: '10px' }}>{displayTime}</span>
+              ) : null}
             </div>
           );
         },

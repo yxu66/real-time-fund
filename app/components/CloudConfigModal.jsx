@@ -41,10 +41,10 @@ export default function CloudConfigModal({ onConfirm, onCancel, type = 'empty' }
             : '是否将本地配置同步到云端？'}
         </p>
         <div className="row" style={{ flexDirection: 'column', gap: 12 }}>
-          <button className="button" onClick={onConfirm}>
+          <button className="button secondary" onClick={onConfirm}>
             {isConflict ? '保留本地 (覆盖云端)' : '同步本地到云端'}
           </button>
-          <button className="button secondary" onClick={onCancel}>
+          <button className="button" onClick={onCancel}>
             {isConflict ? '使用云端 (覆盖本地)' : '暂不同步'}
           </button>
         </div>

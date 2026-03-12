@@ -570,7 +570,8 @@ export default function PcFundTable({
         minSize: 80,
         cell: (info) => {
           const original = info.row.original || {};
-          const date = original.latestNavDate ?? '-';
+          const rawDate = original.latestNavDate ?? '-';
+          const date = typeof rawDate === 'string' && rawDate.length > 5 ? rawDate.slice(5) : rawDate;
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
               <FitText style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10} as="div">
@@ -594,15 +595,20 @@ export default function PcFundTable({
         minSize: 80,
         cell: (info) => {
           const original = info.row.original || {};
-          const date = original.estimateNavDate ?? '-';
+          const rawDate = original.estimateNavDate ?? '-';
+          const date = typeof rawDate === 'string' && rawDate.length > 5 ? rawDate.slice(5) : rawDate;
+          const estimateNav = info.getValue();
+          const hasEstimateNav = estimateNav != null && estimateNav !== '—';
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
               <FitText style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10} as="div">
-                {info.getValue() ?? '—'}
+                {estimateNav ?? '—'}
               </FitText>
-              <span className="muted" style={{ fontSize: '11px' }}>
-                {date}
-              </span>
+              {hasEstimateNav && date && date !== '-' ? (
+                <span className="muted" style={{ fontSize: '11px' }}>
+                  {date}
+                </span>
+              ) : null}
             </div>
           );
         },
@@ -619,7 +625,8 @@ export default function PcFundTable({
         cell: (info) => {
           const original = info.row.original || {};
           const value = original.yesterdayChangeValue;
-          const date = original.yesterdayDate ?? '-';
+          const rawDate = original.yesterdayDate ?? '-';
+          const date = typeof rawDate === 'string' && rawDate.length > 5 ? rawDate.slice(5) : rawDate;
           const cls = value > 0 ? 'up' : value < 0 ? 'down' : '';
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
@@ -646,16 +653,21 @@ export default function PcFundTable({
           const original = info.row.original || {};
           const value = original.estimateChangeValue;
           const isMuted = original.estimateChangeMuted;
-          const time = original.estimateTime ?? '-';
+          const rawTime = original.estimateTime ?? '-';
+          const time = typeof rawTime === 'string' && rawTime.length > 5 ? rawTime.slice(5) : rawTime;
           const cls = isMuted ? 'muted' : value > 0 ? 'up' : value < 0 ? 'down' : '';
+          const text = info.getValue();
+          const hasText = text != null && text !== '—';
           return (
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 0 }}>
               <FitText className={cls} style={{ fontWeight: 700 }} maxFontSize={14} minFontSize={10} as="div">
-                {info.getValue() ?? '—'}
+                {text ?? '—'}
               </FitText>
-              <span className="muted" style={{ fontSize: '11px' }}>
-                {time}
-              </span>
+              {hasText && time && time !== '-' ? (
+                <span className="muted" style={{ fontSize: '11px' }}>
+                  {time}
+                </span>
+              ) : null}
             </div>
           );
         },
