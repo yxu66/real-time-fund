@@ -779,20 +779,29 @@ export const fetchFundHistory = async (code, range = '1m') => {
 
     if (Array.isArray(trend) && trend.length) {
       const startMs = start.startOf('day').valueOf();
-      // end 可能是当日任意时刻，这里用 end-of-day 包含最后一天
       const endMs = end.endOf('day').valueOf();
 
-      const out = trend
-        .filter((d) => d && typeof d.x === 'number' && d.x >= startMs && d.x <= endMs)
+      // 若起始日没有净值，则往前推到最近一日有净值的数据作为有效起始
+      const validTrend = trend
+        .filter((d) => d && typeof d.x === 'number' && Number.isFinite(Number(d.y)) && d.x <= endMs)
+        .sort((a, b) => a.x - b.x);
+      const startDayEndMs = startMs + 24 * 60 * 60 * 1000 - 1;
+      const hasPointOnStartDay = validTrend.some((d) => d.x >= startMs && d.x <= startDayEndMs);
+      let effectiveStartMs = startMs;
+      if (!hasPointOnStartDay) {
+        const lastBeforeStart = validTrend.filter((d) => d.x < startMs).pop();
+        if (lastBeforeStart) effectiveStartMs = lastBeforeStart.x;
+      }
+
+      const out = validTrend
+        .filter((d) => d.x >= effectiveStartMs && d.x <= endMs)
         .map((d) => {
           const value = Number(d.y);
-          if (!Number.isFinite(value)) return null;
           const date = dayjs(d.x).tz(TZ).format('YYYY-MM-DD');
           return { date, value };
-        })
-        .filter(Boolean);
+        });
 
-      // 解析 Data_grandTotal 为多条对比曲线，保存在数组属性 out.grandTotalSeries 上
+      // 解析 Data_grandTotal 为多条对比曲线，使用同一有效起始日
       if (Array.isArray(grandTotal) && grandTotal.length) {
         const grandTotalSeries = grandTotal
           .map((series) => {
@@ -801,7 +810,7 @@ export const fetchFundHistory = async (code, range = '1m') => {
             const points = series.data
               .filter((item) => Array.isArray(item) && typeof item[0] === 'number')
               .map(([ts, val]) => {
-                if (ts < startMs || ts > endMs) return null;
+                if (ts < effectiveStartMs || ts > endMs) return null;
                 const numVal = Number(val);
                 if (!Number.isFinite(numVal)) return null;
                 const date = dayjs(ts).tz(TZ).format('YYYY-MM-DD');
@@ -814,7 +823,6 @@ export const fetchFundHistory = async (code, range = '1m') => {
           .filter(Boolean);
 
         if (grandTotalSeries.length) {
-          // 给数组挂一个属性，供前端图表组件读取
           out.grandTotalSeries = grandTotalSeries;
         }
       }

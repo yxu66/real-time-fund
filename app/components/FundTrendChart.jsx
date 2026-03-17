@@ -62,8 +62,13 @@ export default function FundTrendChart({ code, isExpanded, onToggleExpand, trans
   const [error, setError] = useState(null);
   const chartRef = useRef(null);
   const hoverTimeoutRef = useRef(null);
+  const clearActiveIndexRef = useRef(null);
   const [hiddenGrandSeries, setHiddenGrandSeries] = useState(() => new Set());
   const [activeIndex, setActiveIndex] = useState(null);
+
+  useEffect(() => {
+    clearActiveIndexRef.current = () => setActiveIndex(null);
+  });
 
   const chartColors = useMemo(() => getChartThemeColors(theme), [theme]);
 
@@ -161,8 +166,11 @@ export default function FundTrendChart({ code, isExpanded, onToggleExpand, trans
       grandAccent3,
       chartColors.text,
     ];
-    const grandDatasets = grandTotalSeries.map((series, idx) => {
-      const color = grandColors[idx % grandColors.length];
+    // 隐藏第一条对比线（数据与图示）；第二条用原第一条颜色，第三条用原第二条，顺延
+    const visibleGrandSeries = grandTotalSeries.filter((_, idx) => idx > 0);
+    const grandDatasets = visibleGrandSeries.map((series, displayIdx) => {
+      const color = grandColors[displayIdx % grandColors.length];
+      const idx = displayIdx + 1; // 原始索引，用于 hiddenGrandSeries 的 key
       const key = `${series.name || 'series'}_${idx}`;
       const isHidden = hiddenGrandSeries.has(key);
       const pointsByDate = new Map(series.points.map(p => [p.date, p.value]));
@@ -374,6 +382,7 @@ export default function FundTrendChart({ code, isExpanded, onToggleExpand, trans
             chart.tooltip.setActiveElements([], { x: 0, y: 0 });
           }
           chart.update();
+          clearActiveIndexRef.current?.();
         }, 2000);
       }
     },
@@ -606,17 +615,19 @@ export default function FundTrendChart({ code, isExpanded, onToggleExpand, trans
           )}
         </div>
         {Array.isArray(data.grandTotalSeries) &&
-          data.grandTotalSeries.map((series, idx) => {
-            // 与折线数据使用同一套对比色，且排除红/绿
-            const legendAccent3 = theme === 'light' ? '#f97316' : '#fb923c';
-            const legendColors = [
-              primaryColor,
-              chartColors.muted,
-              legendAccent3,
-              chartColors.text,
-            ];
-            const color = legendColors[idx % legendColors.length];
-            const key = `${series.name || 'series'}_${idx}`;
+          data.grandTotalSeries
+            .filter((_, idx) => idx > 0)
+            .map((series, displayIdx) => {
+              const idx = displayIdx + 1;
+              const legendAccent3 = theme === 'light' ? '#f97316' : '#fb923c';
+              const legendColors = [
+                primaryColor,
+                chartColors.muted,
+                legendAccent3,
+                chartColors.text,
+              ];
+              const color = legendColors[displayIdx % legendColors.length];
+              const key = `${series.name || 'series'}_${idx}`;
             const isHidden = hiddenGrandSeries.has(key);
             let valueText = '--';
             if (!isHidden && currentIndex != null && data[currentIndex]) {
